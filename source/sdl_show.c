@@ -7,7 +7,10 @@
 SDL_Window* window = NULL;
 SDL_Surface* screenSurface = NULL;
 
-int sdl_init()
+static int sdl_width = 0;
+static int sdl_height = 0;
+
+int sdl_init(int w,int h)
 {
     int i = 0;
 
@@ -17,9 +20,13 @@ int sdl_init()
         return -1;
     }     
 
-    window = SDL_CreateWindow( "窗口名称", 100, 100, 1280, 720, SDL_WINDOW_SHOWN );
+    sdl_width = w;
+    sdl_height = h;
+    window = SDL_CreateWindow( "窗口名称", 100, 100, sdl_width, sdl_height, SDL_WINDOW_SHOWN );
  
     screenSurface = SDL_GetWindowSurface( window );
+
+
 
 #if 0
     for(i = 0 ; i <1280 *240*1; i ++ )
@@ -37,17 +44,30 @@ int sdl_init()
 }
 
 
-void put_pixels(int *pixels,int w,int h)
+void put_pixels(unsigned char *pixels)
 {
     int i = 0;
+    for(i = 0 ; i < sdl_width * sdl_height ; i ++){
+        ((int *)screenSurface->pixels)[i] = (pixels[3*i]<<0) | (pixels[3*i+1]<<8) | (pixels[3*i+2]<<16);
+    }
+}
 
 
+void draw_rectangle(int x1,int y1,int x2,int y2)
+{
+    int x,y;
+    for(x = x1; x<x2;x++){
+        ((int *)screenSurface->pixels)[sdl_width*y1 + x] = 0x00ff0000;
+    }
 }
 
 
 void sdl_refresh()
 {
     SDL_UpdateWindowSurface( window );
+    SDL_Delay(20000);
+    SDL_DestroyWindow( window );
+    SDL_Quit();
 }
 
 

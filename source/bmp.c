@@ -1,35 +1,124 @@
 #include "bmp.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
-typedef unsigned char   uint8_t;     
-typedef unsigned short  uint16_t;   
-typedef unsigned int    uint32_t; 
-typedef int             int32_t;  
+#define  BMP_FILEHEADER_SIZE    14 
+#define  BMP_INFO_SIZE          40
 
-typedef struct{ 
-    uint8_t bfType[2]; //文件类型: "BM"/bmp, "BA"/.. , ... 
-    uint32_t bfSize; //整个文件的大小 
-    uint16_t bfReserved1; //保留: 0 
-    uint16_t bfReserved2; //保留: 0 
-    uint32_t bfOffbits; //文件数据从第几个字节开始 
-}Bmp_FileHeader;
+FILE *fp;
+Bmp_FileHeader bf;
+Bmp_Info bi;
+int perW, perWCount;
+unsigned char *data,*pic;
+int overLineBytesNum;
+unsigned int overLineBytesSum;
+int totalSize;
+int picCount;
 
+unsigned char *open_bitmap(char *path,int *w,int *h)
+{
+    int ret = 0;
+    int i,j,k;
+    unsigned char buffHeader[512];
+    if((fp = fopen(path, "rb")) < 0)
+    {   
+        printf("bmp_get : open file %s failed\r\n", path);
+        return NULL;
+    }        
+    if(fread(buffHeader, 1, BMP_FILEHEADER_SIZE, fp) <= 0){
+        printf("bmp_get : read Bmp_FileHeader failed\r\n");
+        fclose(fp);
+        return NULL;       
+    }
+    bf.bfType[0] = buffHeader[0]; 
+    bf.bfType[1] = buffHeader[1];
 
-typedef struct{ 
-    uint32_t biSize; //该段占用字节数 
-    uint32_t biWidth; //图像宽度, 单位像素 
-    int32_t biHeight; //图像高度, 单位像素(数据为正时为倒向) 
-    uint16_t biPlanes; //平面数, 总是为1 
-    uint16_t biBitCount; //单位像素占用比特数: 1, 4, 8, 16, 24, 42 
-    uint32_t biCompression; //图像压缩方式: 0/BI_BGB 不压缩, //  1/BI_RLE8 8比特游程压缩, 只用于8位位图 //  2/BI_RLE4 4比特游程压缩, 只用于4位位图 //  3/BI_BITFIELDS 比特域, 用于16/32位位图 //  4/BI_JPEG 位图含有jpeg图像, 用于打印机 //  5/BI_PWG 位图含有pwg图像, 用于打印机 
-    uint32_t biSizeImage; //说明图像大小, 为BI_BGB时可能为0 
-    int32_t biXPelsPerMeter;//水平分辨率, 像素/米, 有符号整数 
-    int32_t biYPelsPerMeter;//垂直分辨率, 像素/米, 有符号整数 
-    uint32_t biClrUsed; //位图实际使用彩色表中的颜色索引数(为0表示使用所有) 
-    uint32_t biClrImportant;//图像显示有重要影响的颜色索引数 
-}Bmp_Info;
+    bf.bfSize = buffHeader[2] + ((buffHeader[3]&0xFF)<<8) + ((buffHeader[4]&0xFF)<<16) + ((buffHeader[5]&0xFF)<<24);
+    bf.bfOffbits = buffHeader[10] + ((buffHeader[11]&0xFF)<<8) + ((buffHeader[12]&0xFF)<<16) + ((buffHeader[13]&0xFF)<<24);
 
+    if(bf.bfType[0] != 'B' || bf.bfType[1] != 'M') { 
+        printf("bmp_get : bmp type err, bfType must be \"BM\"\r\n"); 
+        fclose(fp); 
+        return NULL; 
+    }
+    if(bf.bfOffbits - BMP_FILEHEADER_SIZE < BMP_INFO_SIZE || fread(buffHeader, 1, BMP_INFO_SIZE, fp) <= 0){
+        printf("bmp_get : read Bmp_Info failed\r\n");
+        fclose(fp);
+        return NULL;
+    }
 
+    bi.biSize = buffHeader[0] + ((buffHeader[1]&0xFF)<<8) + ((buffHeader[2]&0xFF)<<16) + ((buffHeader[3]&0xFF)<<24); 
+    bi.biWidth = buffHeader[4] + ((buffHeader[5]&0xFF)<<8) + ((buffHeader[6]&0xFF)<<16) + ((buffHeader[7]&0xFF)<<24);
+    bi.biHeight = buffHeader[8] | ((buffHeader[9]&0xFF)<<8) | ((buffHeader[10]&0xFF)<<16) | ((buffHeader[11]&0xFF)<<24); 
+    bi.biPlanes = buffHeader[12] + ((buffHeader[13]&0xFF)<<8); 
+    bi.biBitCount = buffHeader[14] + ((buffHeader[15]&0xFF)<<8); 
+    bi.biCompression = buffHeader[16] + ((buffHeader[17]&0xFF)<<8) + ((buffHeader[18]&0xFF)<<16) + ((buffHeader[19]&0xFF)<<24); 
+    bi.biSizeImage = buffHeader[20] + ((buffHeader[21]&0xFF)<<8) + ((buffHeader[22]&0xFF)<<16) + ((buffHeader[23]&0xFF)<<24); 
+    bi.biXPelsPerMeter = buffHeader[24] | ((buffHeader[25]&0xFF)<<8) | ((buffHeader[26]&0xFF)<<16) | ((buffHeader[27]&0xFF)<<24); 
+    bi.biYPelsPerMeter = buffHeader[28] | ((buffHeader[29]&0xFF)<<8) | ((buffHeader[30]&0xFF)<<16) | ((buffHeader[31]&0xFF)<<24); 
+    bi.biClrUsed = buffHeader[32] + ((buffHeader[33]&0xFF)<<8) + ((buffHeader[34]&0xFF)<<16) + ((buffHeader[35]&0xFF)<<24); 
+    bi.biClrImportant = buffHeader[36] + ((buffHeader[37]&0xFF)<<8) + ((buffHeader[38]&0xFF)<<16) + ((buffHeader[39]&0xFF)<<24);
 
+    printf("bi.biSize:%d\r\n",bi.biSize);
+    printf("bi.biWidth:%d\r\n",bi.biWidth);
+    printf("bi.biHeight:%d\r\n",bi.biHeight);
+    printf("bi.biPlanes:%d\r\n",bi.biPlanes);
+    printf("bi.biBitCount:%d\r\n",bi.biBitCount);
+    printf("bi.biCompression:%d\r\n",bi.biCompression);
+    printf("bi.biSizeImage:%d\r\n",bi.biSizeImage);
+    printf("bi.biXPelsPerMeter:%d\r\n",bi.biXPelsPerMeter);
+    printf("bi.biYPelsPerMeter:%d\r\n",bi.biYPelsPerMeter);
+    printf("bi.biClrUsed:%d\r\n",bi.biClrUsed);
+    printf("bi.biClrImportant:%d\r\n",bi.biClrImportant);
+
+   if(bi.biBitCount >= 8)
+        perW = bi.biBitCount/8;
+    else
+        perW = 1;
+    
+    /*to bmp data position*/
+    if(fseek(fp, bf.bfOffbits, 0) < 0)
+    {
+        printf("bmp_get : lseek failed\r\n");
+        fclose(fp);
+        return NULL;
+    }
+   
+    if(bi.biHeight < 0) { 
+        totalSize = bi.biWidth*(-bi.biHeight)*(bi.biBitCount/8); 
+    }else { 
+        totalSize = bi.biWidth*bi.biHeight*(bi.biBitCount/8); 
+    }
+
+    printf("total size:%d\r\n",totalSize);
+    
+    data = (unsigned char *)malloc(totalSize);
+    if((ret = fread(data, 1, totalSize, fp)) != (totalSize)){
+        printf("bmp_get : read data failed\r\n");
+        free(data);
+        fclose(fp);
+        return NULL;
+    }
+    fclose(fp);
+    
+    pic = (unsigned char *)malloc(totalSize);
+    memset(pic, 0, totalSize);
+    
+    if(bi.biHeight > 0){
+        for(i = 0, picCount = totalSize; i < totalSize && picCount >= 0; ){
+            picCount -= bi.biWidth*perW;
+            for(j = 0; j < bi.biWidth*perW; j++){
+                pic[picCount + j ] = data[i++];
+            }
+        }
+    }
+    free(data);
+
+    *w = bi.biWidth;
+    *h = bi.biHeight;
+    return pic;
+}
 
 
 
