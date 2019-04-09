@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "bmp.h"
 #include "sdl_show.h"
+#include "myjpeg.h"
 
 unsigned char *pic;
 
@@ -17,7 +18,10 @@ int main(int argc,char *argv[])
 
     file_path = argv[1];
     printf("file path:%s\r\n",file_path);
-    pic=open_bitmap(file_path,&w,&h);
+
+
+    init_jpeg(file_path,&w,&h);
+
 
     ret =  sdl_init(w,h);
     if(ret <0 ){
@@ -25,11 +29,12 @@ int main(int argc,char *argv[])
         return -1;
     }
 
-    put_pixels(pic);
 
-    //draw_rectangle(200,200,400,400);
+    pic=jpeg_get_pixel();
+    put_jpeg_pixels(pic);
+    //put_bitmap_pixels(pic);
     sdl_refresh();
-
+ 
 
     return 0;
 }
