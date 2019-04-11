@@ -25,6 +25,9 @@ int main(int argc,char *argv[])
         return -1;
     }
 
+    init_audio();
+
+#if 0
     pic = malloc(w*h*12);
     data = malloc(w*h*12);
 
@@ -46,7 +49,7 @@ int main(int argc,char *argv[])
         put_jpeg_pixels(data);
         sdl_refresh();  
     }
- 
+ #endif
 
 #else
     file_path = argv[1];
