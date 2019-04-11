@@ -48,7 +48,7 @@ void put_bitmap_pixels(unsigned char *pixels)
 {
     int i = 0;
     for(i = 0 ; i < sdl_width * sdl_height ; i ++){
-        ((int *)screenSurface->pixels)[i] = (pixels[3*i]<<0) | (pixels[3*i+1]<<8) | (pixels[3*i+2]<<16);
+        ((int *)screenSurface->pixels)[i] = (pixels[3*i]<<16) | (pixels[3*i+1]<<8) | (pixels[3*i+2]<<0);
     }
 }
 
@@ -71,10 +71,17 @@ void draw_rectangle(int x1,int y1,int x2,int y2)
 }
 
 
+
+
 void sdl_refresh()
 {
     SDL_UpdateWindowSurface( window );
-    SDL_Delay(4000);
+    SDL_Delay(50);
+
+}
+
+void sdl_exit()
+{
     SDL_DestroyWindow( window );
     SDL_Quit();
 }
