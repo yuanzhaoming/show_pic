@@ -1,5 +1,7 @@
 {
     "files.associations": {
-        "videodev2.h": "c"
+        "videodev2.h": "c",
+        "avilib.h": "c",
+        "types.h": "c"
     }
 }
